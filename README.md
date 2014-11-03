@@ -15,7 +15,7 @@ ssh root@your.server
 
 Download the installation script
 ```bash
-curl -O http://vestacp.com/pub/vst-install.sh
+curl -O https://raw.githubusercontent.com/gabrielPav/vesta/master/install/vst-install.sh
 ```
 
 Run it
