@@ -11,7 +11,7 @@ CHOST='c.vestacp.com'
 REPO='cmmnt'
 VERSION='0.9.8/rhel'
 YUM_REPO='/etc/yum.repos.d/vesta.repo'
-software="nginx httpd mod_ssl mod_ruid2 mod_extract_forwarded mod_fcgid
+software="httpd mod_ssl mod_ruid2 mod_extract_forwarded mod_fcgid
     php php-bcmath php-cli php-common php-gd php-imap php-mbstring php-mcrypt
     php-mysql php-pdo php-soap php-tidy php-xml php-xmlrpc quota e2fsprogs
     phpMyAdmin awstats webalizer vsftpd mysql mysql-server exim dovecot clamd
@@ -316,16 +316,6 @@ if [ ! -e '/etc/yum.repos.d/remi.repo' ]; then
     fi
 fi
 
-# Install nginx repo
-if [ ! -e '/etc/yum.repos.d/nginx.repo' ]; then
-    echo "[nginx]" > /etc/yum.repos.d/nginx.repo
-    echo "name=nginx repo" >> /etc/yum.repos.d/nginx.repo
-    echo "baseurl=http://nginx.org/packages/centos/$release/\$basearch/" \
-        >> /etc/yum.repos.d/nginx.repo
-    echo "gpgcheck=0" >> /etc/yum.repos.d/nginx.repo
-    echo "enabled=1" >> /etc/yum.repos.d/nginx.repo
-fi
-
 # Install vesta repo
 echo "[vesta]" > $YUM_REPO
 echo "name=Vesta - $REPO" >> $YUM_REPO
@@ -458,12 +448,39 @@ if [ "$disable_fail2ban" = 'yes' ]; then
     software=$(echo "$software" | sed -e 's/fail2ban//')
 fi
 
-# Install Vesta packages
+# Replace Vesta Nginx with Nginx compiled with ngx_pagespeed (http://goo.gl/NXlvL)
+sudo yum -y install zip unzip openssl openssl-devel gcc-c++ pcre-dev pcre-devel zlib-devel make
+
+cd
+NPS_VERSION=1.9.32.2
+wget https://github.com/pagespeed/ngx_pagespeed/archive/release-${NPS_VERSION}-beta.zip
+unzip release-${NPS_VERSION}-beta.zip
+cd ngx_pagespeed-release-${NPS_VERSION}-beta/
+wget https://dl.google.com/dl/page-speed/psol/${NPS_VERSION}.tar.gz
+tar -xzvf ${NPS_VERSION}.tar.gz
+
+cd
+NGINX_VERSION=1.6.2
+wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+tar -xvzf nginx-${NGINX_VERSION}.tar.gz
+cd nginx-${NGINX_VERSION}/
+./configure --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --add-module=$HOME/ngx_pagespeed-release-${NPS_VERSION}-beta --with-http_ssl_module --with-http_realip_module --with-http_gzip_static_module --with-http_stub_status_module
+make
+sudo make install
+cd
+
+# Create Nginx user
+useradd -d /etc/nginx/ -s /sbin/nologin nginx
+
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/rhel/nginx.init.txt -O /etc/init.d/nginx
+sudo chmod +x /etc/init.d/nginx
+
+# Install other Vesta packages
 if [ -z "$disable_remi" ]; then 
-    yum -y --disablerepo=* --enablerepo="base,updates,nginx,epel,vesta,remi" \
+    yum -y --disablerepo=* --enablerepo="base,updates,epel,vesta,remi" \
         install $software
 else
-    yum -y --disablerepo=* --enablerepo="base,updates,nginx,epel,vesta" \
+    yum -y --disablerepo=* --enablerepo="base,updates,epel,vesta" \
         install $software
 fi
 if [ $? -ne 0 ]; then
@@ -780,6 +797,8 @@ fi
 # php configuration
 sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php.ini
 sed -i "s/;date.timezone =/date.timezone = UTC/g" /etc/php.ini
+sed -i 's/memory_limit = 128M/memory_limit = 256M/g' /etc/php.ini
+sed -i 's/display_errors = On/display_errors = Off/g' /etc/php.ini
 
 # phpMyAdmin configuration
 wget $CHOST/$VERSION/httpd-pma.conf -O /etc/httpd/conf.d/phpMyAdmin.conf

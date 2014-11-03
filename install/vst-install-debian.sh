@@ -10,7 +10,7 @@ export DEBIAN_FRONTEND=noninteractive
 RHOST='apt.vestacp.com'
 CHOST='c.vestacp.com'
 VERSION='0.9.8/debian'
-software="nginx apache2 apache2-utils apache2.2-common bsdutils e2fsprogs
+software="apache2 apache2-utils apache2.2-common bsdutils e2fsprogs
     apache2-suexec-custom libapache2-mod-ruid2 libapache2-mod-rpaf
     libapache2-mod-fcgid bind9 idn mysql-server mysql-common
     mysql-client php5-common php5-cgi php5-mysql php5-curl
@@ -273,12 +273,6 @@ if [ -z "$noupdate" ]; then
     fi
 fi
 
-# Install nginx repo
-apt=/etc/apt/sources.list.d
-echo "deb http://nginx.org/packages/debian/ $codename nginx" > $apt/nginx.list
-wget http://nginx.org/keys/nginx_signing.key -O /tmp/nginx_signing.key
-apt-key add /tmp/nginx_signing.key
-
 # Install vesta repo
 echo "deb http://$RHOST/$codename/ $codename vesta" > $apt/vesta.list
 wget $CHOST/deb_signing.key -O deb_signing.key
@@ -409,6 +403,33 @@ apt-get update
 # For more details /usr/share/doc/sysv-rc/README.policy-rc.d.gz
 echo -e '#!/bin/sh \nexit 101' > /usr/sbin/policy-rc.d
 chmod a+x /usr/sbin/policy-rc.d
+
+# Replace Vesta Nginx with Nginx compiled with ngx_pagespeed (http://goo.gl/NXlvL)
+sudo apt-get -y install zip unzip openssl libssl-dev build-essential gcc zlib1g-dev libpcre3 libpcre3-dev
+
+cd
+NPS_VERSION=1.9.32.2
+wget https://github.com/pagespeed/ngx_pagespeed/archive/release-${NPS_VERSION}-beta.zip
+unzip release-${NPS_VERSION}-beta.zip
+cd ngx_pagespeed-release-${NPS_VERSION}-beta/
+wget https://dl.google.com/dl/page-speed/psol/${NPS_VERSION}.tar.gz
+tar -xzvf ${NPS_VERSION}.tar.gz
+
+cd
+NGINX_VERSION=1.6.2
+wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+tar -xvzf nginx-${NGINX_VERSION}.tar.gz
+cd nginx-${NGINX_VERSION}/
+./configure --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --http-client-body-temp-path=/var/cache/nginx/client_temp --http-proxy-temp-path=/var/cache/nginx/proxy_temp --http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp --http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp --http-scgi-temp-path=/var/cache/nginx/scgi_temp --user=nginx --group=nginx --add-module=$HOME/ngx_pagespeed-release-${NPS_VERSION}-beta --with-http_ssl_module --with-http_realip_module --with-http_gzip_static_module --with-http_stub_status_module
+make
+sudo make install
+cd
+
+# Create Nginx user
+useradd -d /etc/nginx/ -s /sbin/nologin nginx
+
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/debian/nginx.init.txt -O /etc/init.d/nginx
+sudo chmod +x /etc/init.d/nginx
 
 # Install Vesta packages
 apt-get -y install $software
@@ -729,6 +750,8 @@ fi
 # php configuration
 sed -i "s/;date.timezone =/date.timezone = UTC/g" /etc/php5/apache2/php.ini
 sed -i "s/;date.timezone =/date.timezone = UTC/g" /etc/php5/cli/php.ini
+sed -i 's/memory_limit = 128M/memory_limit = 256M/g' /etc/php5/apache2/php.ini
+sed -i 's/display_errors = On/display_errors = Off/g' /etc/php5/apache2/php.ini
 
 # phpMyAdmin configuration
 wget $CHOST/$VERSION/apache2-pma.conf -O /etc/phpmyadmin/apache.conf
