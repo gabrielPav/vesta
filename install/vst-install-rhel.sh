@@ -616,6 +616,7 @@ sed -i 's/#allowrsync/allowrsync/' /etc/rssh.conf
 chmod 755 /usr/bin/rssh
 
 # Nginx configuration
+mkdir -p /etc/nginx/conf.d
 rm -f /etc/nginx/conf.d/*.conf
 wget $CHOST/$VERSION/nginx.conf -O /etc/nginx/nginx.conf
 wget $CHOST/$VERSION/nginx-status.conf -O /etc/nginx/conf.d/status.conf
