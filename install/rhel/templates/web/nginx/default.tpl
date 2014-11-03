@@ -4,7 +4,7 @@ server {
     error_log  /var/log/httpd/domains/%domain%.error.log crit;
 
     location / {
-        proxy_pass      http://%ip%:%web_p# ort%;
+        proxy_pass      http://%ip%:%web_port%;
         location ~* ^.+\.(%proxy_extentions%)$ {
             root           %docroot%;
             # access_log     /var/log/httpd/domains/%domain%.log combined;
