@@ -890,6 +890,12 @@ if [ "$quota" = 'yes' ]; then
     $VESTA/bin/v-add-sys-quota
 fi
 
+# Update Nginx config file templates with ngx_pagespeed directives
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/ubuntu/templates/web/nginx/default.tpl -O /usr/local/vesta/data/templates/web/nginx/default.tpl
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/ubuntu/templates/web/nginx/default.stpl -O /usr/local/vesta/data/templates/web/nginx/default.stpl
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/ubuntu/templates/web/nginx/caching.tpl -O /usr/local/vesta/data/templates/web/nginx/caching.tpl
+wget https://raw.githubusercontent.com/gabrielPav/vesta/master/install/ubuntu/templates/web/nginx/caching.stpl -O /usr/local/vesta/data/templates/web/nginx/caching.stpl
+
 # Start system service
 update-rc.d vesta defaults
 service vesta stop > /dev/null 2>&1
